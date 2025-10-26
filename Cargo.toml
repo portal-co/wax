@@ -1,0 +1,11 @@
+[workspace]
+members=["crates/wax-core"]
+resolver="3"
+
+[workspace.package]
+license = "MPL-2.0"
+description = "WASM encoding and parsing utilities"
+
+[workspace.dependencies]
+wasmparser = { version = "0.239.0", default-features = false }
+wasm-encoder = { version = "0.239.0", default-features = false,features = ["wasmparser"] }
