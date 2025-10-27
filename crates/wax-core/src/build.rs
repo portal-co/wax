@@ -1,8 +1,27 @@
 use impl_trait_for_tuples::impl_for_tuples;
 
 use crate::*;
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
+#[repr(transparent)]
+pub struct FromFn<T>(pub T);
+impl<T: FnMut(&Instruction<'_>)> FromFn<T> {
+    pub fn instruction_sink(a: T) -> Self {
+        Self(a)
+    }
+}
+impl<T: FnMut(&Operator<'_>)> FromFn<T> {
+    pub fn operator_sink(a: T) -> Self {
+        Self(a)
+    }
+}
 pub trait InstructionSink {
     fn instruction(&mut self, instruction: &Instruction<'_>);
+}
+impl<T: FnMut(&Instruction<'_>)> InstructionSink for FromFn<T> {
+    fn instruction(&mut self, instruction: &Instruction<'_>) {
+        let FromFn(a) = self;
+        a(instruction);
+    }
 }
 impl<T: InstructionSink + ?Sized> InstructionSink for &'_ mut T {
     fn instruction(&mut self, instruction: &Instruction<'_>) {
@@ -31,6 +50,12 @@ impl InstructionSink for wasm_encoder::Function {
 }
 pub trait OperatorSink {
     fn operator(&mut self, op: &Operator<'_>);
+}
+impl<T: FnMut(&Operator<'_>)> OperatorSink for FromFn<T> {
+    fn operator(&mut self, op: &Operator<'_>) {
+        let FromFn(f) = self;
+        f(op);
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
