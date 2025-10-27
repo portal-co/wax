@@ -1,3 +1,5 @@
+use wasm_encoder::FuncType;
+
 use super::*;
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct Rewrite {
@@ -9,8 +11,8 @@ pub struct Tracker<T> {
     pub idx: u32,
     pub all: Vec<T>,
 }
-impl<T> Tracker<T>{
-    pub fn push(&mut self, a: T) -> u32{
+impl<T> Tracker<T> {
+    pub fn push(&mut self, a: T) -> u32 {
         let i = self.idx;
         self.idx += 1;
         self.all.push(a);
@@ -94,4 +96,19 @@ impl Rewrite {
             i => go(i),
         }
     }
+}
+pub trait Shimmer<E> {
+    fn shim(
+        &self,
+        old: u32,
+        func_types: &[u32],
+        types: &[FuncType],
+        kind: ShimKind,
+        sink: &mut (dyn InstructionSink<E> + '_),
+    ) -> Result<(), E>;
+}
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum ShimKind {
+    Import,
+    Export,
 }

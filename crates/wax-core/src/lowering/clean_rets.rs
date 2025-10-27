@@ -4,19 +4,19 @@ use alloc::collections::btree_map::BTreeMap;
 use wasm_encoder::{FuncType, GlobalType, ValType};
 // use wasm_encoder::Global;
 
-use crate::rewrite::Tracker;
+use crate::rewrite::{Shimmer, Tracker};
 
 use super::*;
 pub struct RetCleaner {
     types: Vec<Vec<ValType>>,
     block_types: Vec<u32>,
     globals: Vec<Vec<u32>>,
-    func_types: BTreeMap<u32, u32>,
+    func_types: Vec<u32>,
 }
 impl RetCleaner {
     pub fn new(
         f: &mut [FuncType],
-        func_types: BTreeMap<u32, u32>,
+        func_types: &[u32],
         globals: &mut Tracker<GlobalType>,
         new_types: &mut Tracker<FuncType>,
     ) -> Self {
@@ -49,7 +49,7 @@ impl RetCleaner {
             types,
             globals,
             block_types,
-            func_types,
+            func_types: func_types.iter().cloned().collect(),
         }
     }
     pub fn inst<E>(
@@ -62,7 +62,7 @@ impl RetCleaner {
     ) -> Result<(), E> {
         match i {
             Instruction::Return => {
-                let g = &self.globals[self.func_types.get(&cur_func).cloned().unwrap() as usize];
+                let g = &self.globals[self.func_types[cur_func as usize] as usize];
                 for g in g.iter().rev().cloned() {
                     f.instruction(&Instruction::GlobalSet(g))?;
                 }
@@ -74,7 +74,7 @@ impl RetCleaner {
                 f.instruction(&Instruction::LocalTee(stash))?;
                 f.instruction(&Instruction::I32Const(-1))?;
                 f.instruction(&Instruction::I32Ne)?;
-                let ft = self.func_types.get(a).cloned().unwrap();
+                let ft = self.func_types[*a as usize];
                 f.instruction(&Instruction::If(BlockType::FunctionType(
                     self.block_types[ft as usize],
                 )))?;
@@ -112,7 +112,7 @@ impl RetCleaner {
                 f.instruction(&Instruction::CallIndirect {
                     type_index: *type_index,
                     table_index: *table_index,
-                });
+                })?;
                 f.instruction(&Instruction::LocalTee(stash))?;
                 f.instruction(&Instruction::I32Const(-1))?;
                 f.instruction(&Instruction::I32Ne)?;
@@ -130,6 +130,38 @@ impl RetCleaner {
                 Ok(())
             }
             i => f.instruction(i),
+        }
+    }
+}
+impl<E> Shimmer<E> for RetCleaner {
+    fn shim(
+        &self,
+        old: u32,
+        func_types: &[u32],
+        types: &[FuncType],
+        kind: rewrite::ShimKind,
+        sink: &mut (dyn InstructionSink<E> + '_),
+    ) -> Result<(), E> {
+        let t = func_types[old as usize];
+        for p in 0..(types[t as usize].params().len()) {
+            sink.instruction(&Instruction::LocalGet(p as u32))?;
+        }
+        sink.instruction(&Instruction::Call(old))?;
+        match kind {
+            rewrite::ShimKind::Import => {
+                for r in self.globals[t as usize].iter().cloned() {
+                    sink.instruction(&Instruction::GlobalSet(r))?;
+                }
+                sink.instruction(&Instruction::I32Const(-1))?;
+                sink.instruction(&Instruction::Return)
+            }
+            rewrite::ShimKind::Export => {
+                let g = &self.globals[t as usize];
+                for g in g.iter().cloned() {
+                    sink.instruction(&Instruction::GlobalGet(g))?;
+                }
+                sink.instruction(&Instruction::Return)
+            }
         }
     }
 }

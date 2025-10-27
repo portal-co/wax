@@ -1,5 +1,7 @@
 use wasm_encoder::{FuncType, GlobalType};
 
+use crate::rewrite::Shimmer;
+
 use super::*;
 pub struct Globalize {
     num_globals: u32,
@@ -75,5 +77,39 @@ impl Globalize {
             }
             instruction => wrapped.instruction(instruction),
         }
+    }
+}
+impl<E> Shimmer<E> for Globalize {
+    fn shim(
+        &self,
+        old: u32,
+        func_types: &[u32],
+        types: &[FuncType],
+        kind: rewrite::ShimKind,
+        sink: &mut (dyn InstructionSink<E> + '_),
+    ) -> Result<(), E> {
+        match kind {
+            rewrite::ShimKind::Import => {
+                for n in 0..self.num_globals {
+                    sink.instruction(&Instruction::GlobalSet(n))?;
+                }
+                sink.instruction(&Instruction::Call(old))?;
+                for n in 0..self.num_globals {
+                    sink.instruction(&Instruction::GlobalGet(n))?;
+                }
+                sink.instruction(&Instruction::Return)?;
+            }
+            rewrite::ShimKind::Export => {
+                for n in 0..self.num_globals {
+                    sink.instruction(&Instruction::GlobalGet(n))?;
+                }
+                sink.instruction(&Instruction::Call(old))?;
+                for n in 0..self.num_globals {
+                    sink.instruction(&Instruction::GlobalSet(n))?;
+                }
+                sink.instruction(&Instruction::Return)?;
+            }
+        };
+        Ok(())
     }
 }
