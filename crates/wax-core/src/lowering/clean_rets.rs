@@ -52,52 +52,58 @@ impl RetCleaner {
             func_types,
         }
     }
-    pub fn inst(
+    pub fn inst<E>(
         &self,
         cur_func: u32,
         stash: u32,
         i: &Instruction<'_>,
-        f: &mut (dyn InstructionSink + '_),
-        trap: &mut (dyn FnMut(&mut (dyn InstructionSink + '_), u32) + '_),
-    ) {
+        f: &mut (dyn InstructionSink<E> + '_),
+        trap: &mut (dyn FnMut(&mut (dyn InstructionSink<E> + '_), u32) -> Result<(), E> + '_),
+    ) -> Result<(), E> {
         match i {
             Instruction::Return => {
                 let g = &self.globals[self.func_types.get(&cur_func).cloned().unwrap() as usize];
                 for g in g.iter().rev().cloned() {
-                    f.instruction(&Instruction::GlobalSet(g))
+                    f.instruction(&Instruction::GlobalSet(g))?;
                 }
-                f.instruction(&Instruction::I32Const(-1));
+                f.instruction(&Instruction::I32Const(-1))?;
                 f.instruction(&Instruction::Return)
             }
             Instruction::Call(a) => {
-                f.instruction(&Instruction::Call(*a));
-                f.instruction(&Instruction::LocalTee(stash));
-                f.instruction(&Instruction::I32Const(-1));
-                f.instruction(&Instruction::I32Ne);
+                f.instruction(&Instruction::Call(*a))?;
+                f.instruction(&Instruction::LocalTee(stash))?;
+                f.instruction(&Instruction::I32Const(-1))?;
+                f.instruction(&Instruction::I32Ne)?;
                 let ft = self.func_types.get(a).cloned().unwrap();
-                f.instruction(&Instruction::If(BlockType::FunctionType(self.block_types[ft as usize])));
-                trap(f, stash);
-                f.instruction(&Instruction::Else);
+                f.instruction(&Instruction::If(BlockType::FunctionType(
+                    self.block_types[ft as usize],
+                )))?;
+                trap(f, stash)?;
+                f.instruction(&Instruction::Else)?;
                 let g = &self.globals[ft as usize];
                 for g in g.iter().cloned() {
-                    f.instruction(&Instruction::GlobalGet(g))
+                    f.instruction(&Instruction::GlobalGet(g))?;
                 }
-                f.instruction(&Instruction::End);
+                f.instruction(&Instruction::End)?;
+                Ok(())
             }
             Instruction::CallRef(a) => {
-                f.instruction(&Instruction::CallRef(*a));
-                f.instruction(&Instruction::LocalTee(stash));
-                f.instruction(&Instruction::I32Const(-1));
-                f.instruction(&Instruction::I32Ne);
+                f.instruction(&Instruction::CallRef(*a))?;
+                f.instruction(&Instruction::LocalTee(stash))?;
+                f.instruction(&Instruction::I32Const(-1))?;
+                f.instruction(&Instruction::I32Ne)?;
                 let ft = *a;
-                f.instruction(&Instruction::If(BlockType::FunctionType(self.block_types[ft as usize])));
-                trap(f, stash);
-                f.instruction(&Instruction::Else);
+                f.instruction(&Instruction::If(BlockType::FunctionType(
+                    self.block_types[ft as usize],
+                )))?;
+                trap(f, stash)?;
+                f.instruction(&Instruction::Else)?;
                 let g = &self.globals[ft as usize];
                 for g in g.iter().cloned() {
-                    f.instruction(&Instruction::GlobalGet(g))
+                    f.instruction(&Instruction::GlobalGet(g))?;
                 }
-                f.instruction(&Instruction::End);
+                f.instruction(&Instruction::End)?;
+                Ok(())
             }
             Instruction::CallIndirect {
                 type_index,
@@ -107,18 +113,21 @@ impl RetCleaner {
                     type_index: *type_index,
                     table_index: *table_index,
                 });
-                f.instruction(&Instruction::LocalTee(stash));
-                f.instruction(&Instruction::I32Const(-1));
-                f.instruction(&Instruction::I32Ne);
+                f.instruction(&Instruction::LocalTee(stash))?;
+                f.instruction(&Instruction::I32Const(-1))?;
+                f.instruction(&Instruction::I32Ne)?;
                 let ft = *type_index;
-                f.instruction(&Instruction::If(BlockType::FunctionType(self.block_types[ft as usize])));
-                trap(f, stash);
-                f.instruction(&Instruction::Else);
+                f.instruction(&Instruction::If(BlockType::FunctionType(
+                    self.block_types[ft as usize],
+                )))?;
+                trap(f, stash)?;
+                f.instruction(&Instruction::Else)?;
                 let g = &self.globals[ft as usize];
                 for g in g.iter().cloned() {
-                    f.instruction(&Instruction::GlobalGet(g))
+                    f.instruction(&Instruction::GlobalGet(g))?;
                 }
-                f.instruction(&Instruction::End);
+                f.instruction(&Instruction::End)?;
+                Ok(())
             }
             i => f.instruction(i),
         }
