@@ -75,7 +75,7 @@ impl RetCleaner {
                 f.instruction(&Instruction::I32Const(-1));
                 f.instruction(&Instruction::I32Ne);
                 let ft = self.func_types.get(a).cloned().unwrap();
-                f.instruction(&Instruction::If(BlockType::FunctionType(ft)));
+                f.instruction(&Instruction::If(BlockType::FunctionType(self.block_types[ft as usize])));
                 trap(f, stash);
                 f.instruction(&Instruction::Else);
                 let g = &self.globals[ft as usize];
@@ -90,7 +90,7 @@ impl RetCleaner {
                 f.instruction(&Instruction::I32Const(-1));
                 f.instruction(&Instruction::I32Ne);
                 let ft = *a;
-                f.instruction(&Instruction::If(BlockType::FunctionType(ft)));
+                f.instruction(&Instruction::If(BlockType::FunctionType(self.block_types[ft as usize])));
                 trap(f, stash);
                 f.instruction(&Instruction::Else);
                 let g = &self.globals[ft as usize];
@@ -111,7 +111,7 @@ impl RetCleaner {
                 f.instruction(&Instruction::I32Const(-1));
                 f.instruction(&Instruction::I32Ne);
                 let ft = *type_index;
-                f.instruction(&Instruction::If(BlockType::FunctionType(ft)));
+                f.instruction(&Instruction::If(BlockType::FunctionType(self.block_types[ft as usize])));
                 trap(f, stash);
                 f.instruction(&Instruction::Else);
                 let g = &self.globals[ft as usize];
