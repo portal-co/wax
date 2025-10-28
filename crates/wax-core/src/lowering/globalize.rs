@@ -88,6 +88,9 @@ impl<E> Shimmer<E> for Globalize {
         kind: rewrite::ShimKind,
         sink: &mut (dyn InstructionSink<E> + '_),
     ) -> Result<(), E> {
+        for p in 0..(types[func_types[old as usize] as usize].params().len() as u32){
+            sink.instruction(&Instruction::LocalGet(p))?;
+        }
         match kind {
             rewrite::ShimKind::Import => {
                 for n in 0..self.num_globals {
