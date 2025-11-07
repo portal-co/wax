@@ -9,7 +9,7 @@ impl SCF {
     pub fn val_types(&self, mut br_target: u32) -> Option<&[ValType]> {
         let mut i = self.blocks.len();
         loop {
-            i -= 1;
+            i = i.wrapping_sub(1);
             let Some(a) = self.blocks.get(i)? else {
                 continue;
             };
