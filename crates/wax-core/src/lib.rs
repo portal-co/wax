@@ -11,6 +11,7 @@ extern crate alloc;
 pub mod build;
 pub mod lowering;
 pub mod rewrite;
+pub mod analysis;
 pub fn r#static(a: Instruction<'_>) -> Instruction<'static> {
     match a {
         Instruction::BrTable(a, b) => Instruction::BrTable(Cow::Owned(a.into_owned()), b),
