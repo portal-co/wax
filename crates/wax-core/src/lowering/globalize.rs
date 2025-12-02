@@ -1,12 +1,37 @@
+//! Global variable globalization transformation.
+//!
+//! This module provides a transformation that converts WASM global variables into
+//! function parameters and return values. This is useful for making implicit state
+//! explicit in the function interface.
+//!
+//! The transformation:
+//! 1. Adds all globals as additional parameters and return values to each function
+//! 2. Converts global.get/set operations to local.get/set operations
+//! 3. Threads global state through all function calls
+
 use wasm_encoder::{FuncType, GlobalType};
 
 use crate::rewrite::Shimmer;
 
 use super::*;
+
+/// A transformer that globalizes WASM global variables.
+///
+/// This converts all global variable accesses into explicit parameter passing,
+/// making the data flow through functions explicit.
 pub struct Globalize {
     num_globals: u32,
 }
 impl Globalize {
+    /// Creates a new Globalize transformer and updates function types.
+    ///
+    /// This method modifies all function types to include globals as both
+    /// additional parameters and return values.
+    ///
+    /// # Arguments
+    ///
+    /// * `a` - The function types to transform (modified in place)
+    /// * `g` - The global variable types to add to function signatures
     pub fn new(a: &mut [FuncType], g: &[GlobalType]) -> Self {
         let globals: Vec<_> = g.iter().map(|a| a.val_type.clone()).collect();
         for a in a.iter_mut() {
@@ -19,6 +44,20 @@ impl Globalize {
             num_globals: g.len() as u32,
         }
     }
+    /// Transforms an instruction according to the globalize strategy.
+    ///
+    /// This method rewrites instructions to thread global state through function
+    /// parameters instead of using global variables directly.
+    ///
+    /// # Arguments
+    ///
+    /// * `num_params` - The number of parameters in the current function
+    /// * `instruction` - The instruction to transform
+    /// * `wrapped` - The sink to emit transformed instructions to
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if instruction emission fails.
     pub fn inst<E>(
         &self,
         num_params: u32,
