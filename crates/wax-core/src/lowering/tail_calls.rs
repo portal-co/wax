@@ -1,6 +1,10 @@
 //! Tail call optimization transformations.
 //!
-//! This module provides transformations related to tail call optimization
+//! **⚠️ Work in Progress**: This module is currently under development and does not yet
+//! contain implemented functionality. The tail call optimization transformations are
+//! planned but not yet available.
+//!
+//! Future implementations will provide transformations to optimize tail calls
 //! in WebAssembly functions.
 
 use alloc::collections::btree_set::BTreeSet;

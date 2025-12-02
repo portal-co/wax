@@ -8,13 +8,13 @@ A Rust library for WebAssembly (WASM) encoding and parsing utilities.
 
 ## Features
 
-- **Instruction Building**: Flexible sink/source patterns for constructing WASM instructions
-- **Code Rewriting**: Type and function index rewriting with shimming support
-- **Code Analysis**: Dead code elimination and structured control flow analysis
+- **Instruction Building**: Flexible sink/source patterns for constructing WASM instructions ✅
+- **Code Rewriting**: Type and function index rewriting with shimming support ✅
+- **Code Analysis**: Dead code elimination and structured control flow analysis ✅
 - **Lowering Transformations**: 
-  - Tail call optimization
-  - Return statement cleanup
-  - Global variable globalization
+  - Return statement cleanup and transformation ✅
+  - Global variable handling and function signature transformation ✅
+  - Tail call optimization 🚧 *(work in progress)*
 
 ## Installation
 
@@ -106,9 +106,11 @@ Code analysis utilities:
 
 ### `lowering`
 Code transformation passes:
-- `tail_calls`: Tail call optimization
-- `clean_rets`: Return statement cleanup and transformation
-- `globalize`: Global variable handling and function signature transformation
+- `clean_rets`: Return statement cleanup and transformation ✅
+- `globalize`: Global variable handling and function signature transformation ✅
+- `tail_calls`: Tail call optimization 🚧 *(work in progress)*
+
+**Note**: The tail call optimization module is currently a placeholder and does not contain implemented functionality.
 
 ## Requirements
 
