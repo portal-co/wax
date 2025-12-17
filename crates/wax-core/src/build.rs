@@ -33,7 +33,7 @@ use crate::*;
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 #[repr(transparent)]
 pub struct FromFn<T>(pub T);
-impl<T: FnMut(&Instruction<'_>) -> Result<(), E>, E> FromFn<T> {
+impl<T> FromFn<T> {
     /// Creates a new instruction sink from a closure.
     ///
     /// # Examples
@@ -47,11 +47,14 @@ impl<T: FnMut(&Instruction<'_>) -> Result<(), E>, E> FromFn<T> {
     ///     Ok::<(), ()>(())
     /// });
     /// ```
-    pub fn instruction_sink(a: T) -> Self {
+    pub fn instruction_sink<Context, E>(a: T) -> Self
+    where
+        T: FnMut(&mut Context, &Instruction<'_>) -> Result<(), E>,
+    {
         Self(a)
     }
 }
-impl<T: FnMut(&Operator<'_>) -> Result<(), E>, E> FromFn<T> {
+impl<T> FromFn<T> {
     /// Creates a new operator sink from a closure.
     ///
     /// # Examples
@@ -65,7 +68,10 @@ impl<T: FnMut(&Operator<'_>) -> Result<(), E>, E> FromFn<T> {
     ///     Ok::<(), ()>(())
     /// });
     /// ```
-    pub fn operator_sink(a: T) -> Self {
+    pub fn operator_sink<Context, E>(a: T) -> Self
+    where
+        T: FnMut(&mut Context, &Operator<'_>) -> Result<(), E>,
+    {
         Self(a)
     }
 }
@@ -78,7 +84,7 @@ impl<T: FnMut(&Operator<'_>) -> Result<(), E>, E> FromFn<T> {
 /// # Type Parameters
 ///
 /// * `E` - The error type that can be returned during instruction processing
-pub trait InstructionSink<E> {
+pub trait InstructionSink<Context, E> {
     /// Processes a single WASM instruction.
     ///
     /// # Arguments
@@ -88,36 +94,40 @@ pub trait InstructionSink<E> {
     /// # Errors
     ///
     /// Returns an error if the instruction cannot be processed.
-    fn instruction(&mut self, instruction: &Instruction<'_>) -> Result<(), E>;
+    fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E>;
 }
-impl<E, T: FnMut(&Instruction<'_>) -> Result<(), E>> InstructionSink<E> for FromFn<T> {
-    fn instruction(&mut self, instruction: &Instruction<'_>) -> Result<(), E> {
+impl<Context, E, T: FnMut(&mut Context, &Instruction<'_>) -> Result<(), E>>
+    InstructionSink<Context, E> for FromFn<T>
+{
+    fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E> {
         let FromFn(a) = self;
-        a(instruction)
+        a(ctx, instruction)
     }
 }
-impl<E, T: InstructionSink<E> + ?Sized> InstructionSink<E> for &'_ mut T {
-    fn instruction(&mut self, instruction: &Instruction<'_>) -> Result<(), E> {
-        (&mut **self).instruction(instruction)
+impl<Context, E, T: InstructionSink<Context, E> + ?Sized> InstructionSink<Context, E>
+    for &'_ mut T
+{
+    fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E> {
+        (&mut **self).instruction(ctx, instruction)
     }
 }
-impl<E, T: OperatorSink<E> + ?Sized> OperatorSink<E> for &'_ mut T {
-    fn operator(&mut self, op: &Operator<'_>) -> Result<(), E> {
-        (&mut **self).operator(op)
+impl<Context, E, T: OperatorSink<Context, E> + ?Sized> OperatorSink<Context, E> for &'_ mut T {
+    fn operator(&mut self, ctx: &mut Context, op: &Operator<'_>) -> Result<(), E> {
+        (&mut **self).operator(ctx, op)
     }
 }
-impl<E, T: InstructionSink<E> + ?Sized> InstructionSink<E> for Box<T> {
-    fn instruction(&mut self, instruction: &Instruction<'_>) -> Result<(), E> {
-        (&mut **self).instruction(instruction)
+impl<Context, E, T: InstructionSink<Context, E> + ?Sized> InstructionSink<Context, E> for Box<T> {
+    fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E> {
+        (&mut **self).instruction(ctx, instruction)
     }
 }
-impl<E, T: OperatorSink<E> + ?Sized> OperatorSink<E> for Box<T> {
-    fn operator(&mut self, op: &Operator<'_>) -> Result<(), E> {
-        (&mut **self).operator(op)
+impl<Context, E, T: OperatorSink<Context, E> + ?Sized> OperatorSink<Context, E> for Box<T> {
+    fn operator(&mut self, ctx: &mut Context, op: &Operator<'_>) -> Result<(), E> {
+        (&mut **self).operator(ctx, op)
     }
 }
-impl<E> InstructionSink<E> for wasm_encoder::Function {
-    fn instruction(&mut self, instruction: &Instruction<'_>) -> Result<(), E> {
+impl<Context, E> InstructionSink<Context, E> for wasm_encoder::Function {
+    fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E> {
         wasm_encoder::Function::instruction(self, instruction);
         Ok(())
     }
@@ -130,7 +140,7 @@ impl<E> InstructionSink<E> for wasm_encoder::Function {
 /// # Type Parameters
 ///
 /// * `E` - The error type that can be returned during operator processing
-pub trait OperatorSink<E> {
+pub trait OperatorSink<Context, E> {
     /// Processes a single WASM operator.
     ///
     /// # Arguments
@@ -140,12 +150,14 @@ pub trait OperatorSink<E> {
     /// # Errors
     ///
     /// Returns an error if the operator cannot be processed.
-    fn operator(&mut self, op: &Operator<'_>) -> Result<(), E>;
+    fn operator(&mut self, ctx: &mut Context, op: &Operator<'_>) -> Result<(), E>;
 }
-impl<E, T: FnMut(&Operator<'_>) -> Result<(), E>> OperatorSink<E> for FromFn<T> {
-    fn operator(&mut self, op: &Operator<'_>) -> Result<(), E> {
+impl<Context, E, T: FnMut(&mut Context, &Operator<'_>) -> Result<(), E>> OperatorSink<Context, E>
+    for FromFn<T>
+{
+    fn operator(&mut self, ctx: &mut Context, op: &Operator<'_>) -> Result<(), E> {
         let FromFn(f) = self;
-        f(op)
+        f(ctx, op)
     }
 }
 
@@ -165,31 +177,41 @@ pub struct Rewrite<R, S> {
     /// The sink that receives converted instructions
     pub sink: S,
 }
-impl<R: Reencode, S: InstructionSink<E>, E: From<wasm_encoder::reencode::Error<R::Error>>>
-    OperatorSink<E> for Rewrite<R, S>
+impl<
+    Context,
+    R: Reencode,
+    S: InstructionSink<Context, E>,
+    E: From<wasm_encoder::reencode::Error<R::Error>>,
+> OperatorSink<Context, E> for Rewrite<R, S>
 {
-    fn operator(&mut self, op: &Operator<'_>) -> Result<(), E> {
+    fn operator(&mut self, ctx: &mut Context, op: &Operator<'_>) -> Result<(), E> {
         self.sink
-            .instruction(&self.rewriter.instruction(op.clone())?)
+            .instruction(ctx, &self.rewriter.instruction(op.clone())?)
     }
 }
-impl<R, S: InstructionSink<E>, E> InstructionSink<E> for Rewrite<R, S> {
-    fn instruction(&mut self, instruction: &Instruction<'_>) -> Result<(), E> {
-        self.sink.instruction(instruction)
+impl<Context, R, S: InstructionSink<Context, E>, E> InstructionSink<Context, E> for Rewrite<R, S> {
+    fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E> {
+        self.sink.instruction(ctx, instruction)
     }
 }
 /// A combined trait for types that can handle both instructions and operators.
 ///
 /// This trait is automatically implemented for any type that implements both
 /// `InstructionSink<E>` and `OperatorSink<E>`.
-pub trait InstructionOperatorSink<E>: InstructionSink<E> + OperatorSink<E> {}
-impl<E, T: InstructionSink<E> + OperatorSink<E> + ?Sized> InstructionOperatorSink<E> for T {}
+pub trait InstructionOperatorSink<Context, E>:
+    InstructionSink<Context, E> + OperatorSink<Context, E>
+{
+}
+impl<Context, E, T: InstructionSink<Context, E> + OperatorSink<Context, E> + ?Sized>
+    InstructionOperatorSink<Context, E> for T
+{
+}
 
 /// A trait for types that can emit WASM instructions.
 ///
 /// This trait allows types to generate and send instructions to a sink.
 /// It's useful for templates, code generators, or instruction sequences.
-pub trait InstructionSource<E>: InstructionOperatorSource<E> {
+pub trait InstructionSource<Context, E>: InstructionOperatorSource<Context, E> {
     /// Emits instructions to the provided sink.
     ///
     /// # Arguments
@@ -199,14 +221,18 @@ pub trait InstructionSource<E>: InstructionOperatorSource<E> {
     /// # Errors
     ///
     /// Returns an error if emission fails.
-    fn emit_instruction(&self, sink: &mut (dyn InstructionSink<E> + '_)) -> Result<(), E>;
+    fn emit_instruction(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn InstructionSink<Context, E> + '_),
+    ) -> Result<(), E>;
 }
 
 /// A trait for types that can emit WASM operators.
 ///
 /// This trait allows types to generate and send operators to a sink.
 /// It's useful when working with parsed WASM representations.
-pub trait OperatorSource<E>: InstructionOperatorSource<E> {
+pub trait OperatorSource<Context, E>: InstructionOperatorSource<Context, E> {
     /// Emits operators to the provided sink.
     ///
     /// # Arguments
@@ -216,14 +242,18 @@ pub trait OperatorSource<E>: InstructionOperatorSource<E> {
     /// # Errors
     ///
     /// Returns an error if emission fails.
-    fn emit_operator(&self, sink: &mut (dyn OperatorSink<E> + '_)) -> Result<(), E>;
+    fn emit_operator(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn OperatorSink<Context, E> + '_),
+    ) -> Result<(), E>;
 }
 
 /// A trait for types that can emit either instructions or operators.
 ///
 /// This base trait provides the most flexible emission mechanism,
 /// allowing the source to work with any sink that handles both types.
-pub trait InstructionOperatorSource<E> {
+pub trait InstructionOperatorSource<Context, E> {
     /// Emits to a sink that can handle both instructions and operators.
     ///
     /// # Arguments
@@ -233,29 +263,45 @@ pub trait InstructionOperatorSource<E> {
     /// # Errors
     ///
     /// Returns an error if emission fails.
-    fn emit(&self, sink: &mut (dyn InstructionOperatorSink<E> + '_)) -> Result<(), E>;
+    fn emit(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn InstructionOperatorSink<Context, E> + '_),
+    ) -> Result<(), E>;
 }
 #[impl_for_tuples(12)]
-impl<E> InstructionOperatorSource<E> for Tuple {
-    for_tuples!(where #(Tuple: InstructionOperatorSource<E>)*);
-    fn emit(&self, sink: &mut (dyn InstructionOperatorSink<E> + '_)) -> Result<(), E> {
-        for_tuples!(#(Tuple.emit(sink)?;)*);
+impl<Context, E> InstructionOperatorSource<Context, E> for Tuple {
+    for_tuples!(where #(Tuple: InstructionOperatorSource<Context, E>)*);
+    fn emit(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn InstructionOperatorSink<Context, E> + '_),
+    ) -> Result<(), E> {
+        for_tuples!(#(Tuple.emit(ctx, sink)?;)*);
         Ok(())
     }
 }
 #[impl_for_tuples(12)]
-impl<E> InstructionSource<E> for Tuple {
-    for_tuples!(where #(Tuple: InstructionSource<E>)*);
-    fn emit_instruction(&self, sink: &mut (dyn InstructionSink<E> + '_)) -> Result<(), E> {
-        for_tuples!(#(Tuple.emit_instruction(sink)?;)*);
+impl<Context, E> InstructionSource<Context, E> for Tuple {
+    for_tuples!(where #(Tuple: InstructionSource<Context, E>)*);
+    fn emit_instruction(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn InstructionSink<Context, E> + '_),
+    ) -> Result<(), E> {
+        for_tuples!(#(Tuple.emit_instruction(ctx, sink)?;)*);
         Ok(())
     }
 }
 #[impl_for_tuples(12)]
-impl<E> OperatorSource<E> for Tuple {
-    for_tuples!(where #(Tuple: OperatorSource<E>)*);
-    fn emit_operator(&self, sink: &mut (dyn OperatorSink<E> + '_)) -> Result<(), E> {
-        for_tuples!(#(Tuple.emit_operator(sink)?;)*);
+impl<Context, E> OperatorSource<Context, E> for Tuple {
+    for_tuples!(where #(Tuple: OperatorSource<Context, E>)*);
+    fn emit_operator(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn OperatorSink<Context, E> + '_),
+    ) -> Result<(), E> {
+        for_tuples!(#(Tuple.emit_operator(ctx, sink)?;)*);
         Ok(())
     }
 }

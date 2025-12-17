@@ -39,8 +39,8 @@ use crate::build::InstructionSink;
 extern crate alloc;
 
 pub mod build;
-pub mod lowering;
-pub mod rewrite;
+// pub mod lowering;
+// pub mod rewrite;
 pub mod analysis;
 
 /// Converts a borrowed WASM instruction to a static lifetime version.
