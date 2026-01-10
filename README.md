@@ -128,3 +128,12 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 ## Design Philosophy
 
 The library is designed to be `no_std` compatible, making it suitable for embedded environments and WebAssembly targets. It uses the `alloc` crate for dynamic allocations and provides zero-cost abstractions where possible.
+
+## Goals
+- [ ] Add project goals
+
+## Progress
+- [ ] Initial setup
+
+---
+*AI assisted*
