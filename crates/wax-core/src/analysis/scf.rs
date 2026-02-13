@@ -15,7 +15,7 @@ use wasmparser::Operator;
 /// This is crucial for correctly handling branches in WASM code.
 #[derive(Default)]
 pub struct SCF {
-    blocks: Vec<Option<Vec<ValType>>>,
+    blocks: Vec<Vec<ValType>>,
 }
 impl SCF {
     /// Gets the value types for a branch target.
@@ -32,16 +32,10 @@ impl SCF {
     /// The value types expected at the branch target, or `None` if invalid
     pub fn val_types(&self, mut br_target: u32) -> Option<&[ValType]> {
         let mut i = self.blocks.len();
-        loop {
-            i = i.wrapping_sub(1);
-            let Some(a) = self.blocks.get(i)? else {
-                continue;
-            };
-            if br_target == 0 {
-                return Some(a);
-            }
-            br_target -= 1;
-        }
+        return self
+            .blocks
+            .get(i - 1 - (br_target as usize))
+            .map(|a| a.as_slice());
     }
     /// Processes an operator and updates the control flow state.
     ///
@@ -67,11 +61,8 @@ impl SCF {
             Operator::End => {
                 self.blocks.pop();
             }
-            Operator::If { blockty } => {
-                self.blocks.push(None);
-            }
-            Operator::Block { blockty } => {
-                self.blocks.push(Some(match blockty {
+            Operator::Block { blockty }|Operator::If { blockty } => {
+                self.blocks.push(match blockty {
                     wasmparser::BlockType::Empty => Default::default(),
                     wasmparser::BlockType::Type(val_type) => {
                         [rewriter.val_type(*val_type)?].into_iter().collect()
@@ -83,10 +74,10 @@ impl SCF {
                         // .map(|a| rewriter.val_type(*a))
                         // .collect::<Result<Vec<_>, _>>()?,
                         .collect(),
-                }));
+                });
             }
             Operator::Loop { blockty } => {
-                self.blocks.push(Some(match blockty {
+                self.blocks.push(match blockty {
                     wasmparser::BlockType::Empty => Default::default(),
                     wasmparser::BlockType::Type(val_type) => Default::default(),
                     wasmparser::BlockType::FuncType(f) => funcs[*f as usize]
@@ -96,7 +87,7 @@ impl SCF {
                         // .map(|a| rewriter.val_type(*a))
                         // .collect::<Result<Vec<_>, _>>()?,
                         .collect(),
-                }));
+                });
             }
             _ => {}
         }
@@ -116,26 +107,23 @@ impl SCF {
             Instruction::End => {
                 self.blocks.pop();
             }
-            Instruction::If(blockty) => {
-                self.blocks.push(None);
-            }
-            Instruction::Block(blockty) => {
-                self.blocks.push(Some(match blockty {
+            Instruction::Block(blockty)|Instruction::If(blockty) => {
+                self.blocks.push(match blockty {
                     wasm_encoder::BlockType::Empty => Default::default(),
                     wasm_encoder::BlockType::Result(t) => [*t].into_iter().collect(),
                     wasm_encoder::BlockType::FunctionType(f) => {
                         funcs[*f as usize].results().iter().cloned().collect()
                     }
-                }));
+                });
             }
             Instruction::Loop(blockty) => {
-                self.blocks.push(Some(match blockty {
+                self.blocks.push(match blockty {
                     wasm_encoder::BlockType::Empty => Default::default(),
                     wasm_encoder::BlockType::Result(t) => Default::default(),
                     wasm_encoder::BlockType::FunctionType(f) => {
                         funcs[*f as usize].params().iter().cloned().collect()
                     }
-                }));
+                });
             }
             _ => {}
         }
