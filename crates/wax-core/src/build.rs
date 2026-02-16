@@ -228,6 +228,15 @@ pub trait InstructionSource<Context, E>: InstructionOperatorSource<Context, E> {
     ) -> Result<(), E>;
 }
 
+pub trait InstructionIterSource<Context, E>: InstructionSource<Context, E> {
+    fn instructions<'a>(
+        &'a self,
+        ctx: &'a mut Context,
+    ) -> Box<dyn Iterator<Item = Result<Instruction<'static>, E>> + 'a>
+    where
+        E: 'a;
+}
+
 /// A trait for types that can emit WASM operators.
 ///
 /// This trait allows types to generate and send operators to a sink.
@@ -247,6 +256,15 @@ pub trait OperatorSource<Context, E>: InstructionOperatorSource<Context, E> {
         ctx: &mut Context,
         sink: &mut (dyn OperatorSink<Context, E> + '_),
     ) -> Result<(), E>;
+}
+
+pub trait OperatorIterSource<Context, E>: OperatorSource<Context, E> {
+    fn operators<'a>(
+        &'a self,
+        ctx: &'a mut Context,
+    ) -> Box<dyn Iterator<Item = Result<Operator<'static>, E>> + 'a>
+    where
+        E: 'a;
 }
 
 /// A trait for types that can emit either instructions or operators.
