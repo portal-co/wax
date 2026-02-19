@@ -324,6 +324,7 @@ impl<Context, E> OperatorSource<Context, E> for Tuple {
     }
 }
 #[cfg(feature = "gen-blocks")]
+#[impl_for_tuples(12)]
 impl<Context, E> InstructionIterSource<Context, E> for Tuple {
     for_tuples!(where #(Tuple: InstructionIterSource<Context, E>)*);
     fn instructions<'a>(
@@ -341,6 +342,7 @@ impl<Context, E> InstructionIterSource<Context, E> for Tuple {
     }
 }
 #[cfg(feature = "gen-blocks")]
+#[impl_for_tuples(12)]
 impl<Context, E> OperatorIterSource<Context, E> for Tuple {
     for_tuples!(where #(Tuple: OperatorIterSource<Context, E>)*);
     fn operators<'a>(
