@@ -336,8 +336,8 @@ impl<Context, E> InstructionIterSource<Context, E> for Tuple {
     {
         Box::new(gen move {
             for_tuples!(#(for op in Tuple.instructions(ctx){
-                    yield op;
-                });*)
+                yield op;
+            });*)
         })
     }
 }
@@ -354,8 +354,8 @@ impl<Context, E> OperatorIterSource<Context, E> for Tuple {
     {
         Box::new(gen move {
             for_tuples!(#(for op in Tuple.operators(ctx){
-                    yield op;
-                });*)
+                yield op;
+            });*)
         })
     }
 }
