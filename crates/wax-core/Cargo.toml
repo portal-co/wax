@@ -9,3 +9,6 @@ description.workspace = true
 impl-trait-for-tuples = "0.2.3"
 wasm-encoder.workspace = true
 wasmparser.workspace = true
+
+[features]
+gen-blocks=[]

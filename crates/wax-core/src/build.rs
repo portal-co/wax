@@ -323,3 +323,37 @@ impl<Context, E> OperatorSource<Context, E> for Tuple {
         Ok(())
     }
 }
+#[cfg(feature = "gen-blocks")]
+impl<Context, E> InstructionIterSource<Context, E> for Tuple {
+    for_tuples!(where #(Tuple: InstructionIterSource<Context, E>)*);
+    fn instructions<'a>(
+        &'a self,
+        ctx: &'a mut Context,
+    ) -> Box<dyn Iterator<Item = Result<Instruction<'static>, E>> + 'a>
+    where
+        E: 'a,
+    {
+        Box::new(gen move {
+            for_tuples!(#(for op in Tuple.instructions(ctx){
+                    yield op;
+                });*)
+        })
+    }
+}
+#[cfg(feature = "gen-blocks")]
+impl<Context, E> OperatorIterSource<Context, E> for Tuple {
+    for_tuples!(where #(Tuple: OperatorIterSource<Context, E>)*);
+    fn operators<'a>(
+        &'a self,
+        ctx: &'a mut Context,
+    ) -> Box<dyn Iterator<Item = Result<Operator<'static>, E>> + 'a>
+    where
+        E: 'a,
+    {
+        Box::new(gen move {
+            for_tuples!(#(for op in Tuple.operators(ctx){
+                    yield op;
+                });*)
+        })
+    }
+}

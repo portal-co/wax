@@ -28,6 +28,7 @@
 //! ```
 
 #![no_std]
+#![cfg_attr(feature = "gen-blocks", feature(gen_blocks))]
 
 use core::{mem::transmute, ops::Range};
 
