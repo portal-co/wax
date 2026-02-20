@@ -324,6 +324,14 @@ impl<Context, E> OperatorSource<Context, E> for Tuple {
     }
 }
 #[cfg(feature = "gen-blocks")]
+macro_rules! gen_block {
+    ($e:expr) => {
+        gen move{
+            $e
+        }
+    };
+}
+#[cfg(feature = "gen-blocks")]
 #[impl_for_tuples(12)]
 impl<Context, E> InstructionIterSource<Context, E> for Tuple {
     for_tuples!(where #(Tuple: InstructionIterSource<Context, E>)*);
@@ -334,7 +342,7 @@ impl<Context, E> InstructionIterSource<Context, E> for Tuple {
     where
         E: 'a,
     {
-        Box::new(gen move {
+        Box::new(gen_block! {
             for_tuples!(#(for op in Tuple.instructions(ctx){
                 yield op;
             });*)
@@ -352,7 +360,7 @@ impl<Context, E> OperatorIterSource<Context, E> for Tuple {
     where
         E: 'a,
     {
-        Box::new(gen move {
+        Box::new(gen_block! {
             for_tuples!(#(for op in Tuple.operators(ctx){
                 yield op;
             });*)
