@@ -325,10 +325,8 @@ impl<Context, E> OperatorSource<Context, E> for Tuple {
 }
 #[cfg(feature = "gen-blocks")]
 macro_rules! gen_block {
-    ($e:expr) => {
-        gen move{
-            $e
-        }
+    ($($e:expr)*) => {
+        gen move { $($e)* }
     };
 }
 #[cfg(feature = "gen-blocks")]
