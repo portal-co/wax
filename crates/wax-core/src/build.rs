@@ -323,6 +323,55 @@ impl<Context, E> OperatorSource<Context, E> for Tuple {
         Ok(())
     }
 }
+pub trait InstructionStitchFn<'a,Context,E>: FnMut(Instruction<'a>) -> Self::Source{
+    type Source: InstructionSource<Context, E>;
+}
+impl<'a,Context,E,T: FnMut(Instruction<'a>) -> S, S: InstructionSource<Context, E>> InstructionStitchFn<'a,Context,E> for T{
+    type Source = S;
+}
+pub trait OperatorStitchFn<'a,Context,E>: FnMut(Operator<'a>) -> Self::Source{
+    type Source: OperatorSource<Context, E>;
+}
+impl<'a,Context,E,T: FnMut(Operator<'a>) -> S, S: OperatorSource<Context, E>> OperatorStitchFn<'a,Context,E> for T{
+    type Source = S;
+}
+pub trait OperatorToInstructionStitchFn<'a,Context,E>: FnMut(Operator<'a>) -> Self::Source where Self::Source: InstructionSource<Context, E>{
+    type Source: InstructionSource<Context, E>;
+}
+impl<'a,Context,E,T: FnMut(Operator<'a>) -> S, S: InstructionSource<Context, E>> OperatorToInstructionStitchFn<'a,Context,E> for T{
+    type Source = S;
+}
+
+pub trait InstructionStitch<Context,E>{
+    type Source<'a>: InstructionSource<Context, E>;
+    fn stitch<'a>(&mut self, instruction: Instruction<'a>) -> Self::Source<'a>;
+}
+impl<Context,E,T: for<'a> InstructionStitchFn<'a,Context,E>> InstructionStitch<Context,E> for T{
+    type Source<'a> = <T as InstructionStitchFn<'a,Context,E>>::Source;
+    fn stitch<'a>(&mut self, instruction: Instruction<'a>) -> Self::Source<'a> {
+        self(instruction)
+    }
+}
+pub trait OperatorStitch<Context,E>{
+    type Source<'a>: OperatorSource<Context, E>;
+    fn stitch<'a>(&mut self, op: Operator<'a>) -> Self::Source<'a>;
+}
+impl<Context,E,T: for<'a> OperatorStitchFn<'a,Context,E>> OperatorStitch<Context,E> for T{
+    type Source<'a> = <T as OperatorStitchFn<'a,Context,E>>::Source;
+    fn stitch<'a>(&mut self, op: Operator<'a>) -> Self::Source<'a> {
+        self(op)
+    }
+}
+pub trait OperatorToInstructionStitch<Context,E>{
+    type Source<'a>: InstructionSource<Context, E>;
+    fn stitch<'a>(&mut self, op: Operator<'a>) -> Self::Source<'a>;
+}
+impl<Context,E,T: for<'a> OperatorToInstructionStitchFn<'a,Context,E>> OperatorToInstructionStitch<Context,E> for T{
+    type Source<'a> = <T as OperatorToInstructionStitchFn<'a,Context,E>>::Source;
+    fn stitch<'a>(&mut self, op: Operator<'a>) -> Self::Source<'a> {
+        self(op)
+    }
+}
 #[cfg(feature = "gen-blocks")]
 macro_rules! gen_block {
     ($($e:expr)*) => {
