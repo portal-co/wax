@@ -16,8 +16,7 @@ impl<'a, Context, E, T: Fn(Operator<'a>) -> S, S: OperatorSource<Context, E>>
 {
     type Source = S;
 }
-pub trait OperatorToInstructionStitchFn<'a, Context, E>:
-    Fn(Operator<'a>) -> Self::Source
+pub trait OperatorToInstructionStitchFn<'a, Context, E>: Fn(Operator<'a>) -> Self::Source
 where
     Self::Source: InstructionSource<Context, E>,
 {
@@ -112,7 +111,7 @@ pub trait OperatorStitch<Context, E> {
 }
 impl<Context, E, T: for<'a> OperatorStitchFn<'a, Context, E>> OperatorStitch<Context, E> for T {
     type Source<'a> = <T as OperatorStitchFn<'a, Context, E>>::Source;
-    fn stitch<'a>(&     self, op: Operator<'a>) -> Self::Source<'a> {
+    fn stitch<'a>(&self, op: Operator<'a>) -> Self::Source<'a> {
         self(op)
     }
 }
@@ -127,7 +126,9 @@ impl<Context, E, A: OperatorStitch<Context, E>, T: OperatorSink<Context, E>>
         a.stitch(op.clone()).emit_operator(ctx, t)
     }
 }
-impl<Context, E, A: OperatorStitch<Context,E>, T:OperatorSource<Context,E>> InstructionOperatorSource<Context, E> for OperatorStitched<A, T> {
+impl<Context, E, A: OperatorStitch<Context, E>, T: OperatorSource<Context, E>>
+    InstructionOperatorSource<Context, E> for OperatorStitched<A, T>
+{
     fn emit(
         &self,
         ctx: &mut Context,
@@ -140,8 +141,7 @@ impl<Context, E, A: OperatorStitch<Context,E>, T:OperatorSource<Context,E>> Inst
         t.emit_operator(
             ctx,
             &mut FromFn::operator_sink(|ctx, instruction| {
-                a.stitch(instruction.clone())
-                    .emit_operator(ctx, sink)
+                a.stitch(instruction.clone()).emit_operator(ctx, sink)
             }),
         )
     }
@@ -164,7 +164,7 @@ impl<Context, E, A: OperatorStitch<Context, E>, T: OperatorSource<Context, E>>
         )
     }
 }
-pub trait OperatorToInstructionStitch<Context,E>{
+pub trait OperatorToInstructionStitch<Context, E> {
     type Source<'a>: InstructionSource<Context, E>;
     fn stitch<'a>(&self, op: Operator<'a>) -> Self::Source<'a>;
 }
@@ -176,7 +176,9 @@ impl<Context, E, T: for<'a> OperatorToInstructionStitchFn<'a, Context, E>>
         self(op)
     }
 }
-impl<Context, E, A: OperatorToInstructionStitch<Context, E>, T: InstructionSink<Context, E>> OperatorSink<Context, E> for CrossStitch<A, T> {
+impl<Context, E, A: OperatorToInstructionStitch<Context, E>, T: InstructionSink<Context, E>>
+    OperatorSink<Context, E> for CrossStitch<A, T>
+{
     fn operator(&mut self, ctx: &mut Context, op: &Operator<'_>) -> Result<(), E> {
         let CrossStitch {
             stitcher: a,
@@ -185,7 +187,9 @@ impl<Context, E, A: OperatorToInstructionStitch<Context, E>, T: InstructionSink<
         a.stitch(op.clone()).emit_instruction(ctx, t)
     }
 }
-impl<Context, E, A: OperatorToInstructionStitch<Context, E>, T: OperatorSource<Context, E>> InstructionOperatorSource<Context, E> for CrossStitch<A, T>{
+impl<Context, E, A: OperatorToInstructionStitch<Context, E>, T: OperatorSource<Context, E>>
+    InstructionOperatorSource<Context, E> for CrossStitch<A, T>
+{
     fn emit(
         &self,
         ctx: &mut Context,
@@ -197,14 +201,13 @@ impl<Context, E, A: OperatorToInstructionStitch<Context, E>, T: OperatorSource<C
         } = self;
         t.emit_operator(
             ctx,
-            &mut FromFn::operator_sink(|ctx, op| {
-                a.stitch(op.clone())
-                    .emit_instruction(ctx, sink)
-            }),
+            &mut FromFn::operator_sink(|ctx, op| a.stitch(op.clone()).emit_instruction(ctx, sink)),
         )
     }
 }
-impl<Context, E, A: OperatorToInstructionStitch<Context, E>, T: OperatorSource<Context, E>> InstructionSource<Context, E> for CrossStitch<A, T>{
+impl<Context, E, A: OperatorToInstructionStitch<Context, E>, T: OperatorSource<Context, E>>
+    InstructionSource<Context, E> for CrossStitch<A, T>
+{
     fn emit_instruction(
         &self,
         ctx: &mut Context,
@@ -217,7 +220,109 @@ impl<Context, E, A: OperatorToInstructionStitch<Context, E>, T: OperatorSource<C
         t.emit_operator(
             ctx,
             &mut FromFn::operator_sink(|ctx, op| a.stitch(op.clone()).emit_instruction(ctx, sink)),
-        )   
+        )
     }
 }
-   
+pub trait InstructionIterStitch<Context, E>:
+    for<'a> InstructionStitch<Context, E, Source<'a>: InstructionIterSource<Context, E>>
+{
+}
+impl<
+    Context,
+    E,
+    T: for<'a> InstructionStitch<Context, E, Source<'a>: InstructionIterSource<Context, E>>,
+> InstructionIterStitch<Context, E> for T
+{
+}
+pub trait OperatorIterStitch<Context, E>:
+    for<'a> OperatorStitch<Context, E, Source<'a>: OperatorIterSource<Context, E>>
+{
+}
+impl<Context, E, T: for<'a> OperatorStitch<Context, E, Source<'a>: OperatorIterSource<Context, E>>>
+    OperatorIterStitch<Context, E> for T
+{
+}
+pub trait OperatorToInstructionIterStitch<Context, E>:
+    for<'a> OperatorToInstructionStitch<Context, E, Source<'a>: InstructionIterSource<Context, E>>
+{
+}
+impl<
+    Context,
+    E,
+    T: for<'a> OperatorToInstructionStitch<Context, E, Source<'a>: InstructionIterSource<Context, E>>,
+> OperatorToInstructionIterStitch<Context, E> for T
+{
+}
+#[cfg(feature = "gen-blocks")]
+const _: () = {
+    impl<Context, E, A: InstructionIterStitch<Context, E>, T: InstructionIterSource<Context, E>>
+        InstructionIterSource<Context, E> for InstructionStitched<A, T>
+    {
+        fn instructions<'a>(
+            &'a self,
+            ctx: &'a mut Context,
+        ) -> Box<dyn Iterator<Item = Result<Instruction<'static>, E>> + 'a>
+        where
+            E: 'a,
+        {
+            Box::new(gen_block! {
+            let InstructionStitched{stitcher:a,target:t} = self;
+            for target_instruction in t.instructions(ctx){
+            match target_instruction{
+            Ok(instruction) => for s in a.stitch(instruction).instructions(ctx){
+            yield s;
+            },
+            Err(e) => yield Err(e),}
+            }
+                        })
+        }
+    }
+    impl<Context, E, A: OperatorIterStitch<Context, E>, T: OperatorIterSource<Context, E>>
+        OperatorIterSource<Context, E> for OperatorStitched<A, T>
+    {
+        fn operators<'a>(
+            &'a self,
+            ctx: &'a mut Context,
+        ) -> Box<dyn Iterator<Item = Result<Operator<'static>, E>> + 'a>
+        where
+            E: 'a,
+        {
+            Box::new(gen_block! {
+            let OperatorStitched{stitcher:a,target:t} = self;
+            for target_operator in t.operators(ctx){
+            match target_operator{
+            Ok(op) => for s in a.stitch(op).operators(ctx){
+            yield s;
+            },
+            Err(e) => yield Err(e),}
+            }
+                        })
+        }
+    }
+    impl<
+        Context,
+        E,
+        A: OperatorToInstructionIterStitch<Context, E>,
+        T: OperatorIterSource<Context, E>,
+    > InstructionIterSource<Context, E> for CrossStitch<A, T>
+    {
+        fn instructions<'a>(
+            &'a self,
+            ctx: &'a mut Context,
+        ) -> Box<dyn Iterator<Item = Result<Instruction<'static>, E>> + 'a>
+        where
+            E: 'a,
+        {
+            Box::new(gen_block! {
+            let CrossStitch{stitcher:a,target:t} = self;
+            for target_operator in t.operators(ctx){
+            match target_operator{
+            Ok(op) => for s in a.stitch(op).instructions(ctx){
+            yield s;
+            },
+            Err(e) => yield Err(e),}
+            }
+                        })
+        }
+    }
+};
