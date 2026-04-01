@@ -214,6 +214,9 @@ impl<Context, E, T: InstructionSink<Context, E> + OperatorSink<Context, E> + ?Si
 /// This trait allows types to generate and send instructions to a sink.
 /// It's useful for templates, code generators, or instruction sequences.
 pub trait InstructionSource<Context, E>: InstructionOperatorSource<Context, E> {
+    fn iter_variant(&self) -> Option<Box<(dyn InstructionIterSource<Context, E> + '_)>> {
+        None
+    }
     /// Emits instructions to the provided sink.
     ///
     /// # Arguments
@@ -244,6 +247,9 @@ pub trait InstructionIterSource<Context, E>: InstructionSource<Context, E> {
 /// This trait allows types to generate and send operators to a sink.
 /// It's useful when working with parsed WASM representations.
 pub trait OperatorSource<Context, E>: InstructionOperatorSource<Context, E> {
+    fn iter_variant(&self) -> Option<Box<(dyn OperatorIterSource<Context, E> + '_)>> {
+        None
+    }
     /// Emits operators to the provided sink.
     ///
     /// # Arguments
@@ -289,6 +295,134 @@ pub trait InstructionOperatorSource<Context, E> {
         sink: &mut (dyn InstructionOperatorSink<Context, E> + '_),
     ) -> Result<(), E>;
 }
+
+impl<Context, E, T: InstructionOperatorSource<Context, E> + ?Sized>
+    InstructionOperatorSource<Context, E> for &'_ T
+{
+    fn emit(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn InstructionOperatorSink<Context, E> + '_),
+    ) -> Result<(), E> {
+        (&**self).emit(ctx, sink)
+    }
+}
+impl<Context, E, T: InstructionOperatorSource<Context, E> + ?Sized>
+    InstructionOperatorSource<Context, E> for Box<T>
+{
+    fn emit(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn InstructionOperatorSink<Context, E> + '_),
+    ) -> Result<(), E> {
+        (&**self).emit(ctx, sink)
+    }
+}
+impl<Context, E, T: InstructionSource<Context, E> + ?Sized> InstructionSource<Context, E>
+    for &'_ T
+{
+    fn iter_variant(&self) -> Option<Box<(dyn InstructionIterSource<Context, E> + '_)>> {
+        (&**self).iter_variant()
+    }
+    fn emit_instruction(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn InstructionSink<Context, E> + '_),
+    ) -> Result<(), E> {
+        (&**self).emit_instruction(ctx, sink)
+    }
+}
+impl<Context, E, T: InstructionSource<Context, E> + ?Sized> InstructionSource<Context, E>
+    for Box<T>
+{
+    fn iter_variant(&self) -> Option<Box<(dyn InstructionIterSource<Context, E> + '_)>> {
+        (&**self).iter_variant()
+    }
+    fn emit_instruction(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn InstructionSink<Context, E> + '_),
+    ) -> Result<(), E> {
+        (&**self).emit_instruction(ctx, sink)
+    }
+}
+impl<Context, E, T: OperatorSource<Context, E> + ?Sized> OperatorSource<Context, E> for &'_ T {
+    fn iter_variant(&self) -> Option<Box<(dyn OperatorIterSource<Context, E> + '_)>> {
+        (&**self).iter_variant()
+    }
+    fn emit_operator(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn OperatorSink<Context, E> + '_),
+    ) -> Result<(), E> {
+        (&**self).emit_operator(ctx, sink)
+    }
+}
+impl<Context, E, T: OperatorSource<Context, E> + ?Sized> OperatorSource<Context, E> for Box<T> {
+    fn iter_variant(&self) -> Option<Box<(dyn OperatorIterSource<Context, E> + '_)>> {
+        (&**self).iter_variant()
+    }
+    fn emit_operator(
+        &self,
+        ctx: &mut Context,
+        sink: &mut (dyn OperatorSink<Context, E> + '_),
+    ) -> Result<(), E> {
+        (&**self).emit_operator(ctx, sink)
+    }
+}
+impl<Context, E, T: InstructionIterSource<Context, E> + ?Sized> InstructionIterSource<Context, E>
+    for &'_ T
+{
+    fn instructions<'a>(
+        &'a self,
+        ctx: &'a mut Context,
+    ) -> Box<dyn Iterator<Item = Result<Instruction<'static>, E>> + 'a>
+    where
+        E: 'a,
+    {
+        (&**self).instructions(ctx)
+    }
+}
+impl<Context, E, T: InstructionIterSource<Context, E> + ?Sized> InstructionIterSource<Context, E>
+    for Box<T>
+{
+    fn instructions<'a>(
+        &'a self,
+        ctx: &'a mut Context,
+    ) -> Box<dyn Iterator<Item = Result<Instruction<'static>, E>> + 'a>
+    where
+        E: 'a,
+    {
+        (&**self).instructions(ctx)
+    }
+}
+impl<Context, E, T: OperatorIterSource<Context, E> + ?Sized> OperatorIterSource<Context, E>
+    for &'_ T
+{
+    fn operators<'a>(
+        &'a self,
+        ctx: &'a mut Context,
+    ) -> Box<dyn Iterator<Item = Result<Operator<'static>, E>> + 'a>
+    where
+        E: 'a,
+    {
+        (&**self).operators(ctx)
+    }
+}
+impl<Context, E, T: OperatorIterSource<Context, E> + ?Sized> OperatorIterSource<Context, E>
+    for Box<T>
+{
+    fn operators<'a>(
+        &'a self,
+        ctx: &'a mut Context,
+    ) -> Box<dyn Iterator<Item = Result<Operator<'static>, E>> + 'a>
+    where
+        E: 'a,
+    {
+        (&**self).operators(ctx)
+    }
+}
+
 #[impl_for_tuples(12)]
 impl<Context, E> InstructionOperatorSource<Context, E> for Tuple {
     for_tuples!(where #(Tuple: InstructionOperatorSource<Context, E>)*);
@@ -304,6 +438,12 @@ impl<Context, E> InstructionOperatorSource<Context, E> for Tuple {
 #[impl_for_tuples(12)]
 impl<Context, E> InstructionSource<Context, E> for Tuple {
     for_tuples!(where #(Tuple: InstructionSource<Context, E>)*);
+
+    #[cfg(feature = "gen-blocks")]
+    fn iter_variant(&self) -> Option<Box<(dyn InstructionIterSource<Context, E> + '_)>> {
+        Some(Box::new((for_tuples!(#(Tuple.iter_variant()?),*))))
+    }
+
     fn emit_instruction(
         &self,
         ctx: &mut Context,
@@ -316,6 +456,10 @@ impl<Context, E> InstructionSource<Context, E> for Tuple {
 #[impl_for_tuples(12)]
 impl<Context, E> OperatorSource<Context, E> for Tuple {
     for_tuples!(where #(Tuple: OperatorSource<Context, E>)*);
+    #[cfg(feature = "gen-blocks")]
+    fn iter_variant(&self) -> Option<Box<(dyn OperatorIterSource<Context, E> + '_)>> {
+        Some(Box::new((for_tuples!(#(Tuple.iter_variant()?),*))))
+    }
     fn emit_operator(
         &self,
         ctx: &mut Context,
