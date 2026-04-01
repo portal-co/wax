@@ -87,3 +87,12 @@ dependencies = [
  "wasm-encoder",
  "wasmparser",
 ]
+
+[[package]]
+name = "wax-tags"
+version = "0.1.0"
+dependencies = [
+ "wasm-encoder",
+ "wasmparser",
+ "wax-core",
+]
