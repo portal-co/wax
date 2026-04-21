@@ -134,6 +134,40 @@ impl<Context, E> InstructionSink<Context, E> for wasm_encoder::Function {
         Ok(())
     }
 }
+
+// ─── ConstPeek ────────────────────────────────────────────────────────────────
+
+/// Companion trait for instruction sinks that can expose compile-time
+/// constant-folding state.
+///
+/// Methods take `&self` and return `None` by default, meaning "runtime-determined".
+/// Implementations that perform constant folding (e.g. [`yecta::Reactor`]) override
+/// these to expose known values from the shadow evaluation stack and virtualized locals.
+///
+/// This allows downstream code generators (e.g. the AGC WASM backend's
+/// `emit_bc_segment`) to statically resolve addresses and substitute
+/// register-local accesses for linear-memory loads without runtime dispatch.
+///
+/// [`yecta::Reactor`]: https://docs.rs/yecta/latest/yecta/struct.Reactor.html
+pub trait ConstPeek {
+    /// Return the constant `i32` value at stack depth `depth` (0 = top) if it is
+    /// statically known (deferred in the constant-folding shadow stack).
+    ///
+    /// Returns `None` when the value is runtime-determined.
+    fn peek_stack_i32(&self, depth: usize) -> Option<i32> {
+        let _ = depth;
+        None
+    }
+
+    /// Return the constant `i32` stored in WASM local `local_idx` if that local
+    /// was virtualized by constant folding (i.e. its `LocalSet` was elided).
+    ///
+    /// Returns `None` when the local's value is runtime-determined.
+    fn peek_local_i32(&self, local_idx: u32) -> Option<i32> {
+        let _ = local_idx;
+        None
+    }
+}
 /// A trait for types that can consume WASM operators.
 ///
 /// Implementors of this trait can receive and process `wasmparser::Operator` values.
