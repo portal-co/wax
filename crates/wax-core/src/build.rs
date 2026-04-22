@@ -97,6 +97,14 @@ pub trait InstructionSink<Context, E> {
     ///
     /// Returns an error if the instruction cannot be processed.
     fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E>;
+
+    /// Finalize the current function or sink.
+    ///
+    /// Most sinks do nothing here. `wasm_encoder::Function` overrides this to
+    /// append the final `End` terminator required by wasm validation.
+    fn finish(&mut self) -> Result<(), E> {
+        Ok(())
+    }
 }
 impl<Context, E, T: FnMut(&mut Context, &Instruction<'_>) -> Result<(), E>>
     InstructionSink<Context, E> for FromFn<T>
@@ -131,6 +139,11 @@ impl<Context, E, T: OperatorSink<Context, E> + ?Sized> OperatorSink<Context, E> 
 impl<Context, E> InstructionSink<Context, E> for wasm_encoder::Function {
     fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E> {
         wasm_encoder::Function::instruction(self, instruction);
+        Ok(())
+    }
+
+    fn finish(&mut self) -> Result<(), E> {
+        wasm_encoder::Function::instruction(self, &Instruction::End);
         Ok(())
     }
 }
