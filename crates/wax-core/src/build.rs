@@ -251,11 +251,24 @@ pub trait AmbientSink<Context, E>: InstructionSink<Context, E> {
     /// onto the WASM value stack.
     fn push_ambient_addr(&mut self, ctx: &mut Context, name: &str) -> Result<(), E>;
 
-    /// Emit a direct call to the ambient symbol `name`.
-    fn call_ambient(&mut self, ctx: &mut Context, name: &str) -> Result<(), E>;
+    /// Emit a native-ABI call to the ambient symbol `name`.
+    ///
+    /// Pops `sig.params().len()` values from the WASM value stack into the
+    /// platform's standard argument registers (SysV / AAPCS64 / RISC-V psABI),
+    /// calls the symbol, then pushes `sig.results().len()` return values from
+    /// the platform's return registers back onto the WASM stack.
+    fn call_ambient(
+        &mut self, ctx: &mut Context, name: &str, sig: &FuncType,
+    ) -> Result<(), E>;
 
-    /// Emit a direct (tail) jump to the ambient symbol `name`.
-    fn jump_ambient(&mut self, ctx: &mut Context, name: &str) -> Result<(), E>;
+    /// Emit a native-ABI direct jump to the ambient symbol `name`.
+    ///
+    /// Same argument marshalling as [`call_ambient`] (pops args into platform
+    /// arg registers) but emits an unconditional jump instead of a call — no
+    /// return values are pushed afterward.
+    fn jump_ambient(
+        &mut self, ctx: &mut Context, name: &str, sig: &FuncType,
+    ) -> Result<(), E>;
 }
 
 /// A trait for types that can consume WASM operators.

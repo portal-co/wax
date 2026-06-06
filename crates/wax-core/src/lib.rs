@@ -33,7 +33,7 @@
 use core::{mem::transmute, ops::Range};
 
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
-use wasm_encoder::{BlockType, Function, Instruction, reencode::Reencode};
+use wasm_encoder::{BlockType, FuncType, Function, Instruction, reencode::Reencode};
 use wasmparser::Operator;
 
 use crate::build::InstructionSink;
