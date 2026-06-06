@@ -115,6 +115,19 @@ pub trait InstructionSink<Context, E> {
     fn as_ambient_sink(&mut self) -> Option<&mut (dyn AmbientSink<Context, E> + '_)> {
         None
     }
+
+    /// Return `true` if this sink supports ambient symbol references.
+    ///
+    /// This is a `&self` companion to [`as_ambient_sink`] that can be queried
+    /// without exclusive access — useful for reactors (interior mutability) and
+    /// for `FedContext` which holds only an immutable reactor reference.
+    ///
+    /// The default implementation checks [`as_ambient_sink`] on a no-op path;
+    /// native backends that always support ambient calls should override this to
+    /// return `true` directly so it can be cached cheaply.
+    fn has_ambient_sink(&self) -> bool {
+        false
+    }
 }
 impl<Context, E, T: FnMut(&mut Context, &Instruction<'_>) -> Result<(), E>>
     InstructionSink<Context, E> for FromFn<T>
@@ -133,6 +146,9 @@ impl<Context, E, T: InstructionSink<Context, E> + ?Sized> InstructionSink<Contex
     fn as_ambient_sink(&mut self) -> Option<&mut (dyn AmbientSink<Context, E> + '_)> {
         (&mut **self).as_ambient_sink()
     }
+    fn has_ambient_sink(&self) -> bool {
+        (**self).has_ambient_sink()
+    }
 }
 impl<Context, E, T: OperatorSink<Context, E> + ?Sized> OperatorSink<Context, E> for &'_ mut T {
     fn operator(&mut self, ctx: &mut Context, op: &Operator<'_>) -> Result<(), E> {
@@ -145,6 +161,9 @@ impl<Context, E, T: InstructionSink<Context, E> + ?Sized> InstructionSink<Contex
     }
     fn as_ambient_sink(&mut self) -> Option<&mut (dyn AmbientSink<Context, E> + '_)> {
         (&mut **self).as_ambient_sink()
+    }
+    fn has_ambient_sink(&self) -> bool {
+        (**self).has_ambient_sink()
     }
 }
 impl<Context, E, T: OperatorSink<Context, E> + ?Sized> OperatorSink<Context, E> for Box<T> {
