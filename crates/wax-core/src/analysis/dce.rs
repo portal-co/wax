@@ -42,7 +42,10 @@ pub fn dce(DceStack(stack): &mut DceStack, o: &Operator<'_>) -> bool {
                 *a = false
             }
         }
-        Operator::If { .. } | Operator::Block { .. } | Operator::Loop { .. } => {
+        Operator::If { .. }
+        | Operator::Block { .. }
+        | Operator::Loop { .. }
+        | Operator::TryTable { .. } => {
             stack.push(false);
         }
         Operator::End => {
@@ -54,7 +57,9 @@ pub fn dce(DceStack(stack): &mut DceStack, o: &Operator<'_>) -> bool {
         | Operator::ReturnCall { .. }
         | Operator::ReturnCallIndirect { .. }
         | Operator::ReturnCallRef { .. }
-        | Operator::Unreachable => {
+        | Operator::Unreachable
+        | Operator::Throw { .. }
+        | Operator::ThrowRef => {
             if let Some(a) = stack.last_mut() {
                 *a = true
             }
@@ -88,7 +93,10 @@ pub fn dce_instr(DceStack(stack): &mut DceStack, o: &Instruction<'_>) -> bool {
                 *a = false
             }
         }
-        Instruction::If { .. } | Instruction::Block { .. } | Instruction::Loop { .. } => {
+        Instruction::If { .. }
+        | Instruction::Block { .. }
+        | Instruction::Loop { .. }
+        | Instruction::TryTable(..) => {
             stack.push(false);
         }
         Instruction::End => {
@@ -100,7 +108,9 @@ pub fn dce_instr(DceStack(stack): &mut DceStack, o: &Instruction<'_>) -> bool {
         | Instruction::ReturnCall { .. }
         | Instruction::ReturnCallIndirect { .. }
         | Instruction::ReturnCallRef { .. }
-        | Instruction::Unreachable => {
+        | Instruction::Unreachable
+        | Instruction::Throw(..)
+        | Instruction::ThrowRef => {
             if let Some(a) = stack.last_mut() {
                 *a = true
             }

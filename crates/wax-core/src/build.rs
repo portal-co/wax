@@ -105,6 +105,16 @@ pub trait InstructionSink<Context, E> {
     fn finish(&mut self) -> Result<(), E> {
         Ok(())
     }
+
+    /// Return a mutable reference to `self` as an [`AmbientSink`], if this
+    /// backend supports ambient (unrecompiled) library symbol references.
+    ///
+    /// Returns `None` for pure-WASM backends. Speet recompilers call this to
+    /// conditionally emit ambient push/call/jump without a static bound on the
+    /// sink type.
+    fn as_ambient_sink(&mut self) -> Option<&mut (dyn AmbientSink<Context, E> + '_)> {
+        None
+    }
 }
 impl<Context, E, T: FnMut(&mut Context, &Instruction<'_>) -> Result<(), E>>
     InstructionSink<Context, E> for FromFn<T>
@@ -120,6 +130,9 @@ impl<Context, E, T: InstructionSink<Context, E> + ?Sized> InstructionSink<Contex
     fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E> {
         (&mut **self).instruction(ctx, instruction)
     }
+    fn as_ambient_sink(&mut self) -> Option<&mut (dyn AmbientSink<Context, E> + '_)> {
+        (&mut **self).as_ambient_sink()
+    }
 }
 impl<Context, E, T: OperatorSink<Context, E> + ?Sized> OperatorSink<Context, E> for &'_ mut T {
     fn operator(&mut self, ctx: &mut Context, op: &Operator<'_>) -> Result<(), E> {
@@ -129,6 +142,9 @@ impl<Context, E, T: OperatorSink<Context, E> + ?Sized> OperatorSink<Context, E> 
 impl<Context, E, T: InstructionSink<Context, E> + ?Sized> InstructionSink<Context, E> for Box<T> {
     fn instruction(&mut self, ctx: &mut Context, instruction: &Instruction<'_>) -> Result<(), E> {
         (&mut **self).instruction(ctx, instruction)
+    }
+    fn as_ambient_sink(&mut self) -> Option<&mut (dyn AmbientSink<Context, E> + '_)> {
+        (&mut **self).as_ambient_sink()
     }
 }
 impl<Context, E, T: OperatorSink<Context, E> + ?Sized> OperatorSink<Context, E> for Box<T> {
@@ -181,6 +197,48 @@ pub trait ConstPeek {
         None
     }
 }
+// ─── AmbientInfo / AmbientSink ───────────────────────────────────────────────
+
+/// Provides runtime addresses of ambient (unrecompiled) library symbols.
+///
+/// Implement on `Context` types. The stored addresses are used during the
+/// final link/load step to resolve [`AmbientSink`]-emitted label references.
+/// They are **not** inlined into generated machine code.
+pub trait AmbientInfo {
+    /// Return the runtime address of the ambient symbol `name`, or `None` if it
+    /// is not registered in this context.
+    fn lookup_ambient_addr(&self, name: &str) -> Option<u64> {
+        let _ = name;
+        None
+    }
+}
+
+impl AmbientInfo for () {}
+
+/// Code-generation interface for referencing ambient (unrecompiled) library symbols.
+///
+/// Implemented only by native code-generation backends (x86-64, AArch64,
+/// RISC-V 64). Pure-WASM backends do not implement this trait.
+///
+/// Each method emits label-based code — **no inline absolute addresses**. The
+/// concrete backend creates a backend-specific `Ambient { name }` label; the
+/// final link/load step resolves it using [`AmbientInfo::lookup_ambient_addr`]
+/// on the context.
+///
+/// No bound is placed on `Context` — the trait is usable from any sink
+/// regardless of what the context provides.
+pub trait AmbientSink<Context, E>: InstructionSink<Context, E> {
+    /// Push the address of the ambient symbol `name` as a 64-bit integer
+    /// onto the WASM value stack.
+    fn push_ambient_addr(&mut self, ctx: &mut Context, name: &str) -> Result<(), E>;
+
+    /// Emit a direct call to the ambient symbol `name`.
+    fn call_ambient(&mut self, ctx: &mut Context, name: &str) -> Result<(), E>;
+
+    /// Emit a direct (tail) jump to the ambient symbol `name`.
+    fn jump_ambient(&mut self, ctx: &mut Context, name: &str) -> Result<(), E>;
+}
+
 /// A trait for types that can consume WASM operators.
 ///
 /// Implementors of this trait can receive and process `wasmparser::Operator` values.
