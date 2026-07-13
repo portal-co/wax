@@ -36,8 +36,9 @@ use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use wasm_encoder::{BlockType, FuncType, Function, Instruction, reencode::Reencode};
 use wasmparser::Operator;
 
-use crate::build::InstructionSink;
 extern crate alloc;
+
+pub use crate::build::InstructionSink;
 
 pub mod build;
 // pub mod lowering;
