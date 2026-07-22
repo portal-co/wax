@@ -14,6 +14,8 @@ use impl_trait_for_tuples::impl_for_tuples;
 use crate::*;
 
 pub mod stitch;
+pub mod lazy;
+pub use lazy::{LazyInstructionTransform, LazyTransform};
 
 /// A wrapper type that converts a function or closure into a sink or source.
 ///
