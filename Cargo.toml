@@ -1,5 +1,5 @@
 [workspace]
-members=["crates/wax-core", "crates/wax-tags"]
+members=["crates/wax-core","crates/wax-tags","crates/wax-meta"]
 resolver="3"
 
 [workspace.package]

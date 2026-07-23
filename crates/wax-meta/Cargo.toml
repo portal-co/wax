@@ -1,0 +1,9 @@
+[package]
+name = "wax-meta"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Canonical WASM semantic metadata manifests"
+
+[dependencies]
+sha3 = { version = "0.10.8", default-features = false }
